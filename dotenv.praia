@@ -1,0 +1,118 @@
+// grains/dotenv.praia — Load environment variables from .env files
+//
+// Parses .env files and sets each variable via sys.setenv().
+// Supports comments (#), empty lines, quoted values, and inline comments.
+//
+// Usage:
+//   use "dotenv"
+//   dotenv.load()                  // loads .env from cwd
+//   dotenv.load(".env.production") // loads a specific file
+//   let vars = dotenv.parse(".env") // parse without setting, returns a map
+
+func hasKey(m, k) {
+    return keys(m).contains(k)
+}
+
+func trim(s) {
+    let start = 0
+    while (start < len(s) && (s[start] == " " || s[start] == "\t")) {
+        start = start + 1
+    }
+    let end = len(s)
+    while (end > start && (s[end - 1] == " " || s[end - 1] == "\t")) {
+        end = end - 1
+    }
+    let result = ""
+    for (i in start..end) {
+        result = result + s[i]
+    }
+    return result
+}
+
+func parseFile(path) {
+    let content = sys.read(path)
+    let lines = content.split("\n")
+    let vars = {}
+
+    for (line in lines) {
+        let trimmed = trim(line)
+
+        // Skip empty lines and comments
+        if (len(trimmed) == 0) { continue }
+        if (trimmed[0] == "#") { continue }
+
+        // Find the = separator
+        let eqIndex = -1
+        for (i in 0..len(trimmed)) {
+            if (trimmed[i] == "=") {
+                eqIndex = i
+                break
+            }
+        }
+        if (eqIndex == -1) { continue }
+
+        // Extract key
+        let key = ""
+        for (i in 0..eqIndex) {
+            key = key + trimmed[i]
+        }
+        key = trim(key)
+
+        // Extract raw value
+        let rawValue = ""
+        for (i in (eqIndex + 1)..len(trimmed)) {
+            rawValue = rawValue + trimmed[i]
+        }
+        rawValue = trim(rawValue)
+
+        // Handle quoted values
+        let value = rawValue
+        if (len(rawValue) >= 2) {
+            let first = rawValue[0]
+            let last = rawValue[len(rawValue) - 1]
+            if ((first == "\"" && last == "\"") || (first == "'" && last == "'")) {
+                // Strip quotes
+                value = ""
+                for (i in 1..(len(rawValue) - 1)) {
+                    value = value + rawValue[i]
+                }
+            } else {
+                // Unquoted: strip inline comments
+                let commentIndex = -1
+                for (i in 0..len(rawValue)) {
+                    if (rawValue[i] == "#" && i > 0 && rawValue[i - 1] == " ") {
+                        commentIndex = i - 1
+                        break
+                    }
+                }
+                if (commentIndex > -1) {
+                    value = ""
+                    for (i in 0..commentIndex) {
+                        value = value + rawValue[i]
+                    }
+                    value = trim(value)
+                }
+            }
+        }
+
+        vars[key] = value
+    }
+
+    return vars
+}
+
+func load(path) {
+    if (path == nil) { path = ".env" }
+    let vars = parseFile(path)
+    for (key in keys(vars)) {
+        sys.setenv(key, vars[key])
+    }
+    return vars
+}
+
+func parse(path) {
+    if (path == nil) { path = ".env" }
+    return parseFile(path)
+}
+
+export { load, parse }
