@@ -103,6 +103,7 @@ func parseFile(path) {
 
 func load(path) {
     if (path == nil) { path = ".env" }
+    ensure (sys.exists(path)) else { return {} }
     let vars = parseFile(path)
     for (key in keys(vars)) {
         sys.setenv(key, vars[key])
@@ -112,6 +113,7 @@ func load(path) {
 
 func parse(path) {
     if (path == nil) { path = ".env" }
+    ensure (sys.exists(path)) else { return {} }
     return parseFile(path)
 }
 
