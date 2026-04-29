@@ -9,61 +9,24 @@
 //   dotenv.load(".env.production") // loads a specific file
 //   let vars = dotenv.parse(".env") // parse without setting, returns a map
 
-func hasKey(m, k) {
-    return keys(m).contains(k)
-}
-
-func trim(s) {
-    let start = 0
-    while (start < len(s) && (s[start] == " " || s[start] == "\t")) {
-        start = start + 1
-    }
-    let end = len(s)
-    while (end > start && (s[end - 1] == " " || s[end - 1] == "\t")) {
-        end = end - 1
-    }
-    let result = ""
-    for (i in start..end) {
-        result = result + s[i]
-    }
-    return result
-}
-
 func parseFile(path) {
-    let content = sys.read(path)
-    let lines = content.split("\n")
+    let lines = sys.readLines(path)
     let vars = {}
 
     for (line in lines) {
-        let trimmed = trim(line)
+        let trimmed = line.strip()
 
         // Skip empty lines and comments
         if (len(trimmed) == 0) { continue }
         if (trimmed[0] == "#") { continue }
 
         // Find the = separator
-        let eqIndex = -1
-        for (i in 0..len(trimmed)) {
-            if (trimmed[i] == "=") {
-                eqIndex = i
-                break
-            }
-        }
+        let eqIndex = trimmed.indexOf("=")
         if (eqIndex == -1) { continue }
 
-        // Extract key
-        let key = ""
-        for (i in 0..eqIndex) {
-            key = key + trimmed[i]
-        }
-        key = trim(key)
-
-        // Extract raw value
-        let rawValue = ""
-        for (i in (eqIndex + 1)..len(trimmed)) {
-            rawValue = rawValue + trimmed[i]
-        }
-        rawValue = trim(rawValue)
+        // Extract key and raw value
+        let key = trimmed.slice(0, eqIndex).strip()
+        let rawValue = trimmed.slice(eqIndex + 1).strip()
 
         // Handle quoted values
         let value = rawValue
@@ -72,10 +35,7 @@ func parseFile(path) {
             let last = rawValue[len(rawValue) - 1]
             if ((first == "\"" && last == "\"") || (first == "'" && last == "'")) {
                 // Strip quotes
-                value = ""
-                for (i in 1..(len(rawValue) - 1)) {
-                    value = value + rawValue[i]
-                }
+                value = rawValue.slice(1, len(rawValue) - 1)
             } else {
                 // Unquoted: strip inline comments
                 let commentIndex = -1
@@ -86,11 +46,7 @@ func parseFile(path) {
                     }
                 }
                 if (commentIndex > -1) {
-                    value = ""
-                    for (i in 0..commentIndex) {
-                        value = value + rawValue[i]
-                    }
-                    value = trim(value)
+                    value = rawValue.slice(0, commentIndex).strip()
                 }
             }
         }
@@ -102,7 +58,7 @@ func parseFile(path) {
 }
 
 func load(path) {
-    if (path == nil) { path = ".env" }
+    path = path ?? ".env"
     ensure (sys.exists(path)) else { return {} }
     let vars = parseFile(path)
     for (key in keys(vars)) {
@@ -112,7 +68,7 @@ func load(path) {
 }
 
 func parse(path) {
-    if (path == nil) { path = ".env" }
+    path = path ?? ".env"
     ensure (sys.exists(path)) else { return {} }
     return parseFile(path)
 }
